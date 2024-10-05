@@ -16,7 +16,6 @@ class RFAM(nn.Module):
             nn.Sigmoid()
         )
 
-
     def forward(self, U_1 , U_2):
 
         U = torch.cat((U_1, U_2), dim=1)
