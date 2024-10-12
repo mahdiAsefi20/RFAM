@@ -1,3 +1,5 @@
+from tkinter.dnd import Tester
+
 import numpy as np
 import cv2
 import torchvision.transforms as transforms
@@ -13,7 +15,6 @@ def rgb2dct(tensor_image: transforms):
     """
     grayscale_transform = transforms.Compose([
         transforms.ToPILImage(),  # Convert the tensor to PIL Image
-        transforms.Grayscale(),  # Convert to grayscale
     ])
 
     pil_gray_image = grayscale_transform(tensor_image)  # Use the transform as a function on tensor_image
@@ -25,9 +26,8 @@ def rgb2dct(tensor_image: transforms):
     numpy_image_float = np.float32(numpy_image)  # Convert to float32 for DCT
 
     # Apply DCT using OpenCV
-    dct_image = dct(dct(numpy_image_float, axis=0, norm='ortho'), axis=1, norm='ortho')
-
-    return dct_image
+    dct_channels = [dct(dct(numpy_image_float[:, :, i], axis=0, norm='ortho'), axis=1, norm='ortho') for i in range(3)]
+    return np.stack(dct_channels, axis=2)
 
 
 def high_pass_filter(dct_image, alpha= 0.33):
@@ -41,23 +41,21 @@ def high_pass_filter(dct_image, alpha= 0.33):
     :return: DCT image of high frequency
     """
     """Apply high-pass filter by zeroing a triangular region in the DCT image."""
-    h, w= dct_image.shape
-    mask = np.ones((h, w), dtype=np.float32)  # Start with a mask of ones
+    h, w, _ = dct_image.shape
+    mask = np.ones((h, w, 3), dtype=np.float32)  # Start with a mask of ones
 
     # Create a triangular mask
     for i in range(round(alpha * w)):
         for j in range(round(alpha * w) - i - 1):
-                mask[i, j] = 0  # Zero out the triangle
-    mask2 = np.ones((h, w), dtype=np.float32) * 255
-    mm = mask2 * mask
+                mask[i, j, :] = 0  # Zero out the triangle
 
     return dct_image * mask
 
 def dct2rgb(dct_image):
 
-    idct_image = idct(idct(dct_image, axis=0, norm='ortho'), axis=1, norm='ortho')
+    idct_channels = [idct(idct(dct_image[:, :, i], axis=0, norm='ortho'), axis=1, norm='ortho') for i in range(3)]
+    return np.stack(idct_channels, axis=2)
 
-    return idct_image
 
 
 
@@ -76,3 +74,9 @@ def frequency_aware_cue(image_tensor):
     tensor_idct_output = to_tensor_transform(idct_output)
 
     return tensor_idct_output
+
+## Test
+# to_tensor_transform = transforms.ToTensor()
+# a = to_tensor_transform(cv2.imread("/home/mahdi/Documents/Projects/RFAM/test/aa.png"))
+# b = frequency_aware_cue(a)
+# print(b.shape)
