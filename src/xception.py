@@ -125,8 +125,6 @@ class Xception(nn.Module):
         self.block2=Block(128,256,2,2,start_with_relu=True,grow_first=True)
         self.block3=Block(256,728,2,2,start_with_relu=True,grow_first=True)
 
-        self.rfam_low=RFAM(2*728)
-
         self.block4=Block(728,728,3,1,start_with_relu=True,grow_first=True)
         self.block5=Block(728,728,3,1,start_with_relu=True,grow_first=True)
         self.block6=Block(728,728,3,1,start_with_relu=True,grow_first=True)
@@ -137,7 +135,6 @@ class Xception(nn.Module):
         self.block10=Block(728,728,3,1,start_with_relu=True,grow_first=True)
         self.block11=Block(728,728,3,1,start_with_relu=True,grow_first=True)
 
-        self.rfam_mid = RFAM(2*728)
 
         self.block12=Block(728,1024,2,2,start_with_relu=True,grow_first=False)
 
@@ -147,8 +144,6 @@ class Xception(nn.Module):
         #do relu here
         self.conv4 = SeparableConv2d(1536,2048,3,1,1)
         self.bn4 = nn.BatchNorm2d(2048)
-
-        self.rfam_high = RFAM(2*2048)
 
         self.fc = nn.Linear(2048, num_classes)
 
@@ -168,119 +163,87 @@ class Xception(nn.Module):
 
 
 
-    def forward(self, x1, x2):
+    def forward(self, x, x2):
         # features begin
 
         # Stream 1 low begin
-        x1 = self.conv1(x1)
-        x1 = self.bn1(x1)
-        x1 = self.relu(x1)
+        x = self.conv1(x)
+        x = self.bn1(x)
+        x = self.relu(x)
         
-        x1 = self.conv2(x1)
-        x1 = self.bn2(x1)
-        x1 = self.relu(x1)
+        x = self.conv2(x)
+        x = self.bn2(x)
+        x = self.relu(x)
         
-        x1 = self.block1(x1)
-        x1 = self.block2(x1)
-        x1 = self.block3(x1)
-        U1_low = x1
-        # Stream 1 low end
-
-        # Stream 2 low begin
-        x2 = self.conv1(x2)
-        x2 = self.bn1(x2)
-        x2 = self.relu(x2)
-
-        x2 = self.conv2(x2)
-        x2 = self.bn2(x2)
-        x2 = self.relu(x2)
-
-        x2 = self.block1(x2)
-        x2 = self.block2(x2)
-        x2 = self.block3(x2)
-        U2_low = x2
-        # Stream 2 low end
-
-        # RFAM low
-        A1_low, A2_low = self.rfam_low(U1_low, U2_low)
-        x1 = U1_low * A1_low
-        x2 = U2_low * A2_low
-
-        # Stream 1 mid begin
-        x1 = self.block4(x1)
-        x1 = self.block5(x1)
-        x1 = self.block6(x1)
-        x1 = self.block7(x1)
-        x1 = self.block8(x1)
-        x1 = self.block9(x1)
-        x1 = self.block10(x1)
-        x1 = self.block11(x1)
-        U1_mid = x1
-        # Stream 1 mid end
-
-        # Stream 2 mid begin
-        x2 = self.block4(x2)
-        x2 = self.block5(x2)
-        x2 = self.block6(x2)
-        x2 = self.block7(x2)
-        x2 = self.block8(x2)
-        x2 = self.block9(x2)
-        x2 = self.block10(x2)
-        x2 = self.block11(x2)
-        U2_mid = x2
-        # Stream 2 mid end
-
-        # RFAM mid
-        A1_mid, A2_mid = self.rfam_mid(U1_mid, U2_mid)
-        x1 = U1_mid * A1_mid
-        x2 = U2_mid * A2_mid
-
-        # Stream 1 high begin
-        x1 = self.block12(x1)
+        x = self.block1(x)
+        x = self.block2(x)
+        x = self.block3(x)
+       
+        x = self.block4(x)
+        x = self.block5(x)
+        x = self.block6(x)
+        x = self.block7(x)
+        x = self.block8(x)
+        x = self.block9(x)
+        x = self.block10(x)
+        x = self.block11(x)
+       
+        x = self.block12(x)
         
-        x1 = self.conv3(x1)
-        x1 = self.bn3(x1)
-        x1 = self.relu(x1)
+        x = self.conv3(x)
+        x = self.bn3(x)
+        x = self.relu(x)
         
-        x1 = self.conv4(x1)
-        x1 = self.bn4(x1)
-        x1 = self.relu(x1)
-        U1_high = x1
-        # Stream 1 high end
+        x = self.conv4(x)
+        x = self.bn4(x)
+        x = self.relu(x)
 
-        # Stream 2 high begin
-        x2 = self.block12(x2)
-
-        x2 = self.conv3(x2)
-        x2 = self.bn3(x2)
-        x2 = self.relu(x2)
-
-        x2 = self.conv4(x2)
-        x2 = self.bn4(x2)
-        x2 = self.relu(x2)
-        U2_high = x2
-        # Stream 2 high end
-
-        # RFAM high
-        A1_high, A2_high = self.rfam_high(U1_high, U2_high)
-        # x1 = U1_high * A1_high
-        # x2 = U2_high * A2_high
-
-        # x1 = F.adaptive_avg_pool2d(x1, (1, 1))
-        # x1 = x1.view(x1.size(0), -1)
-        # # feature end
-        # y = self.fc(x1)
-        # # high feature
-        # x2 = F.adaptive_avg_pool2d(x2, (1, 1))
-        # x2 = x2.view(x2.size(0), -1)
-        # # feature end
-        # y = self.fc(x2)
-
-        return [(U1_low, A1_low), (U2_low, A2_low), (U1_mid, A1_mid), (U2_mid, A2_mid), (U1_high, A1_high), (U2_high, A2_high)]
+        x = F.adaptive_avg_pool2d(x, (1, 1))
+        x = x.view(x.size(0), -1)
+        # feature end
+        y = self.fc(x)
+        return y
 
 
+    def block_1(self, x):
+        x = self.conv1(x)
+        x = self.bn1(x)
+        x = self.relu(x)
+        
+        x = self.conv2(x)
+        x = self.bn2(x)
+        x = self.relu(x)
+        
+        x = self.block1(x)
+        x = self.block2(x)
+        x = self.block3(x)
+        return x
 
-def xception(pretrained=False,num_classes=1000):
+    def block_2(self, x):
+        x = self.block4(x)
+        x = self.block5(x)
+        x = self.block6(x)
+        x = self.block7(x)
+        x = self.block8(x)
+        x = self.block9(x)
+        x = self.block10(x)
+        x = self.block11(x)
+        return x
+    
+    def block_3(self, x):
+        x = self.block12(x)
+        
+        x = self.conv3(x)
+        x = self.bn3(x)
+        x = self.relu(x)
+        
+        x = self.conv4(x)
+        x = self.bn4(x)
+        x = self.relu(x)
+        return x
+
+
+def xception(pretrained=True,num_classes=1000):
     """
     Construct Xception.
     """
@@ -293,8 +256,8 @@ def xception(pretrained=False,num_classes=1000):
 
 
 # a = xception()
-# x1 = torch.rand(1, 3 , 229, 229)
+# x = torch.rand(1, 3 , 229, 229)
 # x2 = torch.rand(1, 3 , 229, 229)
-# o = a(x1 , x2)
+# o = a(x , x2)
 # for u in o:
 #     print(u[0].shape)
