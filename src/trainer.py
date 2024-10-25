@@ -1,37 +1,50 @@
-
 import numpy as np
 import torch
 import os, time
+
+from tqdm import tqdm
+
 from utils import AverageMeter, evaluate, EmptyWith, log_print
 
 class Trainer(object):
     def __init__(self,
         train_loader=None, 
         test_loader=None,
-        model=None, 
+        model=None,
+        mpsm=None,
+        rfam_low=None,
+        rfam_mid=None,
+        rfam_high=None,
         optimizer=None, 
-        loss_fn=None, 
-        consistency_fn=None,
-        consistency_rate=1.0,
-        log_interval=100, 
+        ce_loss_fn=None,
+        similarity_loss_fn=None,
+        similarity_loss_rate=10,
+        log_interval=50,
         best_recond={"acc":0,"auc":0,"epoch":-1},
         save_dir="ckpt/test",
-        exp_name="test",
-        amp=False):
+        exp_name="test"):
         self.train_loader=train_loader
         self.test_loader=test_loader
         self.model=model
+        self.mpsm=mpsm
+        self.rfam_low=rfam_low
+        self.rfam_mid=rfam_mid
+        self.rfam_high=rfam_high
         self.optimizer=optimizer
-        self.loss_fn=loss_fn
-        self.consistency_fn=consistency_fn
-        self.consistency_rate=consistency_rate
-        self.log_interval=log_interval
+        self.ce_loss_fn=ce_loss_fn
+        self.similarity_loss_fn=similarity_loss_fn
+        self.similarity_loss_rate=similarity_loss_rate
+        self.log_interval = log_interval
         self.best_record = best_recond
         self.save_dir = save_dir
         self.exp_name = exp_name
-        self.amp = amp
 
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+
+        self.rfam_low = self.rfam_low.to(self.device)
+        self.rfam_mid = self.rfam_mid.to(self.device)
+        self.rfam_high = self.rfam_high.to(self.device)
 
         if torch.cuda.is_available():
             if torch.cuda.device_count() > 1:
@@ -41,7 +54,7 @@ class Trainer(object):
         self.model.train()
 
         train_loss_ce = AverageMeter()
-        train_loss_consistency = AverageMeter()
+        train_loss_similarity = AverageMeter()
         train_loss = AverageMeter()
         train_acc = AverageMeter()
         train_auc = AverageMeter()
@@ -49,68 +62,77 @@ class Trainer(object):
 
         start_time = time.time()
 
-        # scaler
-        if self.amp:
-            scaler = torch.cuda.amp.GradScaler()
+        for batch_idx,(rgb_date, freq_data ,label, similarity_map) in enumerate(self.train_loader):
 
-        for batch_idx,(data,label) in enumerate(self.train_loader): 
-            if type(data) is list:
-                data = torch.cat(data,dim=0)
-                label = torch.cat([label,label],dim=0)
-            data = data.to(self.device)
+            rgb_date = rgb_date.to(self.device)
+            freq_data = freq_data.to(self.device)
             label = label.to(self.device)
             N = label.size(0)
             # forward
             self.optimizer.zero_grad()
-            if self.amp:
-                amp_class = torch.cuda.amp.autocast
-            else:
-                amp_class = EmptyWith
+            U1_low = self.model.block_1(rgb_date)
+            U2_low = self.model.block_1(freq_data)
+            A1_low, A2_low = self.rfam_low(U1_low, U2_low)
+            x1 = U1_low * A1_low
+            x2 = U2_low * A2_low
 
-            with amp_class():
-                # forward and loss
-                feature, outputs = self.model(data)
-                feature_norm.update(torch.mean(torch.sqrt(torch.sum(feature*feature,dim=1))).item(),N)
-                loss_ce = self.loss_fn(outputs,label)
-                if self.consistency_fn is not None:
-                    loss_consistency = self.consistency_fn(feature)
-                    loss = self.consistency_rate * loss_consistency + loss_ce
-                else:
-                    loss = loss_ce
+            U1_mid = self.model.block_2(x1)
+            U2_mid = self.model.block_2(x2)
+            A1_mid, A2_mid = self.rfam_mid(U1_mid, U2_mid)
+            x1 = U1_mid * A1_mid
+            x2 = U2_mid * A2_mid
+
+            U1_high = self.model.block_3(x1)
+            U2_high = self.model.block_3(x2)
+            A1_high, A2_high = self.rfam_high(U1_high, U2_high)
+            x1 = U1_high * A1_high
+            x2 = U2_high * A2_high
+
+            outputs_list = [(U1_low, A1_low), (U2_low, A2_low), (U1_mid, A1_mid), (U2_mid, A2_mid), (U1_high, A1_high),
+                            (U2_high, A2_high)]
+
+            predicted_similarity = self.mpsm.similarity_map(outputs_list)
+
+            sim_loss = self.similarity_loss_fn(similarity_map.to(torch.float32), predicted_similarity.to(torch.float32)).to(
+                torch.float32)
+            predicted_similarity = predicted_similarity.to(self.device)
+            predicted_label = self.model.block_4(predicted_similarity)
+            label = label.to(torch.long)
+            print(label.shape, label, predicted_label.shape, predicted_label)
+
+            cross_loss = self.ce_loss_fn(predicted_label, label)
+            print("cross loss: ", cross_loss.item())
+            print("sim loss: ", sim_loss.item())
+            loss = cross_loss + (10 * sim_loss)
+            print("loss: ", loss.item())
+            loss = loss.to(torch.float32)
+
+
+
             # backward
-            if self.amp:
-                scaler.scale(loss).backward()
-                scaler.step(self.optimizer)
-                scaler.update()
-            else:
-                loss.backward()
-                self.optimizer.step()
+            loss.backward()
+            self.optimizer.step()
 
-            outputs = outputs.data.cpu().numpy()
+            outputs = predicted_label.data.cpu().numpy()
             label = label.data.cpu().numpy()
             acc, auc, tdr = evaluate(outputs,label)
-            train_loss_ce.update(loss_ce.item(), N)
-            if self.consistency_fn is not None:
-                train_loss_consistency.update(loss_consistency.item(), N)
+            train_loss_ce.update(cross_loss.item(), N)
+            train_loss_similarity.update(sim_loss.item(), N)
             train_loss.update(loss.item(), N)
             train_acc.update(acc, N)
             train_auc.update(auc, N)
 
             if (batch_idx+1) % self.log_interval == 0:
-                if self.consistency_fn is not None:
-                    msg = '[{}][train] [epoch {}], [iter {} / {}], [loss {:.8f}],[loss ce{:.8f}],[loss consistency {:.8f}], [acc {:.5f}], [auc {:.5f}], [time used {:.1f}], [time left {:.1f}], [feature norm {}]'.format(
-                    self.exp_name, epoch, batch_idx, len(self.train_loader), train_loss.avg,train_loss_ce.avg,train_loss_consistency.avg, train_acc.avg, train_auc.avg, (time.time()-start_time)/60, (time.time()-start_time)/60/(batch_idx+1)*(len(self.train_loader)-batch_idx-1), feature_norm.avg)
-                else:
-                    msg = '[{}][train] [epoch {}], [iter {} / {}], [loss {:.8f}], [acc {:.5f}], [auc {:.5f}], [time used {:.0f}], [time left {:.0f}], [feature norm {}]'.format(
-                    self.exp_name, epoch, batch_idx, len(self.train_loader), train_loss.avg, train_acc.avg, train_auc.avg, (time.time()-start_time)/60, (time.time()-start_time)/60/(batch_idx+1)*(len(self.train_loader)-batch_idx-1), feature_norm.avg)
+                msg = '[{}][train] [epoch {}], [iter {} / {}], [loss {:.8f}],[loss ce{:.8f}],[loss similarity {:.8f}], [acc {:.5f}], [auc {:.5f}], [time used {:.1f}], [time left {:.1f}], [feature norm {}]'.format(
+                self.exp_name, epoch, batch_idx, len(self.train_loader), train_loss.avg,train_loss_ce.avg,train_loss_similarity.avg, train_acc.avg, train_auc.avg, (time.time()-start_time)/60, (time.time()-start_time)/60/(batch_idx+1)*(len(self.train_loader)-batch_idx-1), feature_norm.avg)
                 log_print(msg)
-        if self.consistency_fn is not None:
-            msg = '[{}][train] [epoch {}], [loss {:.8f}], [loss ce {:.8f}],[loss consistency {:.8f}], [acc {:.5f}], [auc {:.5f}], [time {:.0f}], [lr {:.5f}], [feature norm {}]'.format(
-            self.exp_name, epoch, train_loss.avg, train_loss_ce.avg,train_loss_consistency.avg, train_acc.avg, train_auc.avg, (time.time()-start_time)/60, self.optimizer.param_groups[0]['lr'], feature_norm.avg)
-        else:
-            msg = '[{}][train] [epoch {}], [loss {:.8f}], [acc {:.5f}], [auc {:.5f}], [time {:.0f}], [lr {:.5f}], [feature norm {}]'.format(
-            self.exp_name, epoch, train_loss.avg, train_acc.avg, train_auc.avg, (time.time()-start_time)/60, self.optimizer.param_groups[0]['lr'], feature_norm.avg)
-        log_print(msg)
+                msg = '[{}][train] [epoch {}], [loss {:.8f}], [loss ce {:.8f}],[loss similarity {:.8f}], [acc {:.5f}], [auc {:.5f}], [time {:.0f}], [lr {:.5f}], [feature norm {}]'.format(
+                self.exp_name, epoch, train_loss.avg, train_loss_ce.avg,train_loss_similarity.avg, train_acc.avg, train_auc.avg, (time.time()-start_time)/60, self.optimizer.param_groups[0]['lr'], feature_norm.avg)
+                log_print(msg)
+        log_print("--------------------------------------------------------------------")
+        log_print("similarity loss: {}".format(sim_loss.item()))
+        log_print("cross entropy loss: {}".format(cross_loss.item()))
+        log_print("loss: {}".format(loss.item()))
 
     def test_epoch(self,epoch):
         self.model.eval()
@@ -120,19 +142,47 @@ class Trainer(object):
         outputs = []
         labels = []
         with torch.no_grad():
-            for batch_idx,(data,label) in tqdm(enumerate(self.test_loader),total=len(self.test_loader)):
-                data = data.to(self.device)
+            for batch_idx,(rgb_date, freq_data ,label, similarity_map) in tqdm(enumerate(self.test_loader),total=len(self.test_loader)):
+                rgb_date = rgb_date.to(self.device)
+                freq_data = freq_data.to(self.device)
                 label = label.to(self.device)
                 N = label.size(0)
-                feature, output = self.model(data)
-                feature_norm.update(torch.mean(torch.sqrt(torch.sum(feature*feature,dim=1))).item(),N)
-                loss = self.loss_fn(output,label)
+                # forward
+                self.optimizer.zero_grad()
+                U1_low = self.model.block_1(rgb_date)
+                U2_low = self.model.block_1(freq_data)
+                A1_low, A2_low = self.rfam_low(U1_low, U2_low)
+                x1 = U1_low * A1_low
+                x2 = U2_low * A2_low
 
-                val_loss.update(loss.item(), N)
-                output = output.data.cpu().numpy()
+                U1_mid = self.model.block_2(x1)
+                U2_mid = self.model.block_2(x2)
+                A1_mid, A2_mid = self.rfam_mid(U1_mid, U2_mid)
+                x1 = U1_mid * A1_mid
+                x2 = U2_mid * A2_mid
+
+                U1_high = self.model.block_3(x1)
+                U2_high = self.model.block_3(x2)
+                A1_high, A2_high = self.rfam_high(U1_high, U2_high)
+                x1 = U1_high * A1_high
+                x2 = U2_high * A2_high
+
+                outputs_list = [(U1_low, A1_low), (U2_low, A2_low), (U1_mid, A1_mid), (U2_mid, A2_mid),
+                                (U1_high, A1_high),
+                                (U2_high, A2_high)]
+
+                predicted_similarity = self.mpsm.similarity_map(outputs_list)
+                predicted_similarity = predicted_similarity.to(self.device)
+                predicted_label = self.model.block_4(predicted_similarity)
+                label = label.to(torch.long)
+                cross_loss = self.ce_loss_fn(predicted_label, label)
+                N = label.size(0)
+
+                val_loss.update(cross_loss.item(), N)
+                predicted_label = predicted_label.data.cpu().numpy()
 
                 label = label.data.cpu().numpy()
-                outputs.append(output)
+                outputs.append(predicted_label)
                 labels.append(label)
 
         outputs = np.concatenate(outputs)

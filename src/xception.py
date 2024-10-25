@@ -146,7 +146,7 @@ class Xception(nn.Module):
         self.bn4 = nn.BatchNorm2d(2048)
 
         self.fc = nn.Linear(2048, num_classes)
-
+        self.sigmoid = nn.Sigmoid()
 
 
         #------- init weights --------
@@ -170,15 +170,15 @@ class Xception(nn.Module):
         x = self.conv1(x)
         x = self.bn1(x)
         x = self.relu(x)
-        
+
         x = self.conv2(x)
         x = self.bn2(x)
         x = self.relu(x)
-        
+
         x = self.block1(x)
         x = self.block2(x)
         x = self.block3(x)
-       
+
         x = self.block4(x)
         x = self.block5(x)
         x = self.block6(x)
@@ -187,13 +187,13 @@ class Xception(nn.Module):
         x = self.block9(x)
         x = self.block10(x)
         x = self.block11(x)
-       
+
         x = self.block12(x)
-        
+
         x = self.conv3(x)
         x = self.bn3(x)
         x = self.relu(x)
-        
+
         x = self.conv4(x)
         x = self.bn4(x)
         x = self.relu(x)
@@ -209,11 +209,11 @@ class Xception(nn.Module):
         x = self.conv1(x)
         x = self.bn1(x)
         x = self.relu(x)
-        
+
         x = self.conv2(x)
         x = self.bn2(x)
         x = self.relu(x)
-        
+
         x = self.block1(x)
         x = self.block2(x)
         x = self.block3(x)
@@ -229,21 +229,30 @@ class Xception(nn.Module):
         x = self.block10(x)
         x = self.block11(x)
         return x
-    
+
     def block_3(self, x):
         x = self.block12(x)
-        
+
         x = self.conv3(x)
         x = self.bn3(x)
         x = self.relu(x)
-        
+
         x = self.conv4(x)
         x = self.bn4(x)
         x = self.relu(x)
         return x
 
+    def block_4(self, x):
+        x = x.view(x.size(0), -1)
+        # feature end
+        x = self.fc(x)
 
-def xception(pretrained=True,num_classes=1000):
+        y = self.sigmoid(x)
+        return y
+
+
+
+def xception(pretrained=True,num_classes=2):
     """
     Construct Xception.
     """
@@ -251,7 +260,7 @@ def xception(pretrained=True,num_classes=1000):
     model = Xception()
     if pretrained:
         model.load_state_dict(model_zoo.load_url(model_urls['xception']))
-    model.fc = nn.Linear(in_features=2048, out_features=num_classes)
+    model.fc = nn.Linear(in_features=625, out_features=num_classes)
     return model
 
 

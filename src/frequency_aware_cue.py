@@ -59,7 +59,7 @@ def dct2rgb(dct_image):
 
 
 
-def frequency_aware_cue(image_tensor):
+def frequency_aware_cue(image_tensor, alpha=0.33):
     """
     Get the input image tensor after augmentation and do DCT, high pass filtering, Inverse DCT
     :param image_tensor: A RGB image in tensor. H * W * C
@@ -68,7 +68,7 @@ def frequency_aware_cue(image_tensor):
     """
 
     dct_output = rgb2dct(image_tensor)
-    filter_output = high_pass_filter(dct_output, 0.33)
+    filter_output = high_pass_filter(dct_output, alpha)
     idct_output = dct2rgb(filter_output)
     to_tensor_transform = transforms.ToTensor()
     tensor_idct_output = to_tensor_transform(idct_output)

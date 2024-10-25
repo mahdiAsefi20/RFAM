@@ -10,8 +10,8 @@ from .base_dataset import BaseDataset
 from src.utils import log_print
 
 class FFpp(BaseDataset):
-    def __init__(self, fake_root, original_root, train_type="train",transform=None,num_classes=2,quality='c23'):
-        super(FFpp,self).__init__(fake_root=fake_root, original_root=original_root, transform=transform, num_classes=num_classes)
+    def __init__(self, fake_root, original_root, train_type="train",transform=None,num_classes=2,alpha=0.33,quality='c23'):
+        super(FFpp,self).__init__(fake_root=fake_root, original_root=original_root, train_type=train_type,transform=transform, num_classes=num_classes, alpha=alpha)
 
         fake_imgs = []
         real_imgs = []
@@ -34,9 +34,10 @@ class FFpp(BaseDataset):
         #         fake_imgs += [[t,1] for t in glob.glob(os.path.join(root,"manipulated_sequences/{}/{}/videos".format(fake_type,quality),"{}_{}".format(b,a),"*.png"))]
         #     real_imgs += [[t,0] for t in glob.glob(os.path.join(root,"original_sequences/youtube/{}/videos".format(quality),"{}".format(a),"*.png"))]
         #     real_imgs += [[t,0] for t in glob.glob(os.path.join(root,"original_sequences/youtube/{}/videos".format(quality),"{}".format(b),"*.png"))]
-
-        fake_imgs += [[t,1] for t in glob.glob("/home/mahdi/Documents/Projects/RFAM/dataset/FF/fakes/*.png")]
-        real_imgs += [[t,0] for t in glob.glob("/home/mahdi/Documents/Projects/RFAM/dataset/FF/originals/*.png")]
+        print(fake_root + "/" + train_type +"/*.png")
+        print(original_root + "/" + train_type +"/*.png")
+        fake_imgs += [[t,1] for t in glob.glob(fake_root + "/" + train_type +"/*.png")]
+        real_imgs += [[t,0] for t in glob.glob(original_root + "/" + train_type +"/*.png")]
         log_print("[{}]\t fake imgs count :{}, real imgs count :{}".format(train_type, len(fake_imgs),len(real_imgs)))
 
         self.imgs = fake_imgs + real_imgs
