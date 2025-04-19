@@ -1,3 +1,5 @@
+from comet_ml import start
+from comet_ml.integration.pytorch import log_model
 from multiscale_patch_similarity_module import MPSM
 from rgb_frequency_attention_module import RFAM
 import argparse, os, logging, time
@@ -12,12 +14,29 @@ from datasets.dfdcp import DFDCP
 from xception import xception
 from trainer import Trainer
 from transform import TwoTransform, get_augs
-from utils import log_print
+from utils import log_print, setup_logger, L2Loss
+
 
 torch.multiprocessing.set_sharing_strategy("file_system")
 
 
+def disable_batchnorm(model):
+    """Disables BatchNorm layers by setting them to eval mode."""
+    for module in model.modules():
+        if isinstance(module, nn.BatchNorm2d) or isinstance(module, nn.BatchNorm1d):
+            module.eval()  # Disable running mean/variance updates
+            module.requires_grad_(False)
+
 def main(args):
+
+    hyper_params = vars(args)
+
+    experiment = start(
+        api_key="wJ5nyFWFDl079TRhZEQ6kAE5b",
+        project_name="RFAM",
+        workspace="mahdiasefi20"
+    )
+    experiment.log_parameters(hyper_params)
     save_dir = os.path.join("ckpt", args.dataset, args.exp_name, args.model_name)
     os.makedirs(save_dir, exist_ok=True)
 
@@ -30,6 +49,7 @@ def main(args):
     # model
     if args.model_name == "xception":
         model = xception(pretrained=True, num_classes=2)
+        log_model(experiment, model=model, model_name="xception")
     else:
         raise NotImplementedError
     if torch.cuda.is_available():
@@ -91,6 +111,7 @@ def main(args):
 
     # Similarity Loss (Mean Square Error)
     similarity_loss_fn = nn.MSELoss()
+    # similarity_loss_fn = L2Loss()
 
     log_print("consistency loss function: {}, rate:{}".format(similarity_loss_fn, args.similarity_loss_rate))
     if args.optimizer == "adam":
@@ -139,6 +160,7 @@ def main(args):
         log_interval=args.log_interval,
         best_recond=best_recond,
         save_dir=save_dir,
+        exp=experiment,
         exp_name=args.exp_name)
     lr = args.lr
     for epoch_idx in range(start_epoch, args.epochs + 1):
@@ -153,6 +175,7 @@ def main(args):
         trainer.test_epoch(epoch_idx)
         print("-------------------- test epoch {} end-------------------------------------".format(epoch_idx))
 
+    log_model(experiment, model=model, model_name="last_model")
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -172,9 +195,9 @@ if __name__ == '__main__':
     # dataset
     arg('--dataset', type=str, default='ff')
     arg('--ff-quality', type=str, default='c23', choices=['c23', 'c40', 'raw'])
-    arg('--fake_root', type=str, default='/home/mahdi/Documents/Projects/RFAM/dataset/FF/fakes')
-    arg('--real_root', type=str, default='/home/mahdi/Documents/Projects/RFAM/dataset/FF/originals')
-    arg('--batch-size', type=int, default=2)
+    arg('--fake_root', type=str, default=r'/mnt/d/Datasets/FF++/PatchForensics/DF')
+    arg('--real_root', type=str, default=r'/mnt/d/Datasets/FF++/PatchForensics/original')
+    arg('--batch-size', type=int, default=8)
     arg('--num-workers', type=int, default=0)
     arg('--shuffle', type=bool, default=True)
 
@@ -190,15 +213,16 @@ if __name__ == '__main__':
     arg('--optimizer', type=str, default="adam")
     arg('--lr', type=float, default=2e-4)
 
-    arg('--exp-name', type=str, default='test')
+    arg('--exp-name', type=str, default='triple_sim_l2_loss')
 
     arg('--gpus', type=str, default='0')
 
-    arg('--log-interval', type=int, default=10)
+    arg('--log-interval', type=int, default=1)
 
     arg("--epochs", type=int, default=50)
     arg("--load-model-path", type=str, default=None)
-
+    # \\wsl.localhost\Ubuntu\home\mahdiasefi\Projects\RFAM\weights\model - data_comet - torch - model - 48.
+    # pth
     arg("--model-name", type=str, default="xception")
 
     arg("--amp", default=False, action='store_true')

@@ -11,10 +11,17 @@ class MPSM():
         self.k = k
 
     def fuse_streams(self):
-        U_low = (self.feature_maps[0][0] * self.feature_maps[0][1]) + (self.feature_maps[1][0] * self.feature_maps[1][1])
-        U_mid = (self.feature_maps[2][0] * self.feature_maps[2][1]) + (self.feature_maps[3][0] * self.feature_maps[3][1])
-        U_high = (self.feature_maps[4][0] * self.feature_maps[4][1]) + (self.feature_maps[5][0] * self.feature_maps[5][1])
-        return U_low, U_mid, U_high
+        if len(self.feature_maps) == 2:
+            U_low = (self.feature_maps[0][0] * self.feature_maps[0][1]) + (self.feature_maps[1][0] * self.feature_maps[1][1])
+            return U_low
+        elif len(self.feature_maps) == 4:
+            U_mid = (self.feature_maps[2][0] * self.feature_maps[2][1]) + (self.feature_maps[3][0] * self.feature_maps[3][1])
+            return U_mid
+        else:
+            U_high = (self.feature_maps[4][0] * self.feature_maps[4][1]) + (self.feature_maps[5][0] * self.feature_maps[5][1])
+            return U_high
+
+        # return U_low, U_mid, U_high
 
     def resize_and_concat(self, U_low, U_mid, U_high):
 
@@ -23,6 +30,7 @@ class MPSM():
         U_mid_resized = F.interpolate(U_mid, size=(output_size, output_size), mode='bicubic', align_corners=False)
 
         U_final = torch.cat((U_low_resized, U_mid_resized, U_high), 1)
+
         return U_final
 
     def make_patch(self, U):
@@ -48,7 +56,6 @@ class MPSM():
         flattened_patches = patches.view(batch_size, num_patches * num_patches,-1)
         return flattened_patches
 
-
     def patch_similarities(self, patches):
         # Normalize patch vectors along the feature dimension
         normalized_patches = F.normalize(patches, p=2, dim=-1)
@@ -62,14 +69,13 @@ class MPSM():
 
         self.feature_maps = feature_maps
 
-        u1, u2, u3= self.fuse_streams()
-
-        uf= self.resize_and_concat(u1, u2, u3)
+        # u1, u2, u3= self.fuse_streams()
+        uf = self.fuse_streams()
+        # uf= self.resize_and_concat(u1, u2, u3)
 
         patch  = self.make_patch(uf)
 
         patch_flat = self.flatten_patches(patch)
-
         similarity = self.patch_similarities(patch_flat)
 
         # batch_size = similarity.shape[0]

@@ -8,14 +8,14 @@ from utils import AverageMeter, evaluate, EmptyWith, log_print
 
 class Trainer(object):
     def __init__(self,
-        train_loader=None, 
+        train_loader=None,
         test_loader=None,
         model=None,
         mpsm=None,
         rfam_low=None,
         rfam_mid=None,
         rfam_high=None,
-        optimizer=None, 
+        optimizer=None,
         ce_loss_fn=None,
         similarity_loss_fn=None,
         exp=None,
@@ -51,6 +51,8 @@ class Trainer(object):
             if torch.cuda.device_count() > 1:
                 self.model = torch.nn.DataParallel(self.model)
 
+
+
     def train_epoch(self,epoch):
         self.model.train()
 
@@ -76,27 +78,37 @@ class Trainer(object):
             A1_low, A2_low = self.rfam_low(U1_low, U2_low)
             x1 = U1_low * A1_low
             x2 = U2_low * A2_low
-
+            outputs_list = [(U1_low, A1_low), (U2_low, A2_low)]
+            predicted_similarity_low = self.mpsm.similarity_map(outputs_list)
+            sim_loss_low = self.similarity_loss_fn(similarity_map.to(torch.float32).to(self.device),
+                                               predicted_similarity_low.to(torch.float32).to(self.device))
+            print("low sim loss: ", sim_loss_low.item())
             U1_mid = self.model.block_2(x1)
             U2_mid = self.model.block_2(x2)
             A1_mid, A2_mid = self.rfam_mid(U1_mid, U2_mid)
             x1 = U1_mid * A1_mid
             x2 = U2_mid * A2_mid
+            outputs_list = [(U1_low, A1_low), (U2_low, A2_low), (U1_mid, A1_mid), (U2_mid, A2_mid)]
+            predicted_similarity_mid = self.mpsm.similarity_map(outputs_list)
+            sim_loss_mid = self.similarity_loss_fn(similarity_map.to(torch.float32).to(self.device),
+                                               predicted_similarity_mid.to(torch.float32).to(self.device))
+            print("mid sim loss: ", sim_loss_mid.item())
 
             U1_high = self.model.block_3(x1)
             U2_high = self.model.block_3(x2)
             A1_high, A2_high = self.rfam_high(U1_high, U2_high)
             x1 = U1_high * A1_high
             x2 = U2_high * A2_high
-
             outputs_list = [(U1_low, A1_low), (U2_low, A2_low), (U1_mid, A1_mid), (U2_mid, A2_mid), (U1_high, A1_high),
                             (U2_high, A2_high)]
 
             predicted_similarity = self.mpsm.similarity_map(outputs_list)
+            sim_loss_high = self.similarity_loss_fn(similarity_map.to(torch.float32).to(self.device), predicted_similarity.to(torch.float32).to(self.device))
+            print("high sim loss: ", sim_loss_high.item())
 
-            sim_loss = self.similarity_loss_fn(similarity_map.to(torch.float32), predicted_similarity.to(torch.float32)).to(
-                torch.float32)
+            sim_loss = (sim_loss_low + sim_loss_mid + sim_loss_high) / 3
             predicted_similarity = predicted_similarity.to(self.device)
+
             predicted_label = self.model.block_4(predicted_similarity)
             label = label.to(torch.long)
             print(label.shape, label, predicted_label.shape, predicted_label)
@@ -112,6 +124,8 @@ class Trainer(object):
 
             # backward
             loss.backward()
+
+
             self.optimizer.step()
 
             outputs = predicted_label.data.cpu().numpy()
@@ -125,7 +139,9 @@ class Trainer(object):
             train_metrics = {
                 "train_cross_loss": cross_loss.item(),
                 "train_sim_loss": sim_loss.item(),
-                "train_sim_loss": sim_loss.item(),
+                "train_sim_loss_low": sim_loss_low.item(),
+                "train_sim_loss_mid": sim_loss_mid.item(),
+                "train_sim_loss_high": sim_loss_high.item(),
                 "train_loss": loss.item(),
                 "train_acc": acc,
                 "train_auc": auc,
@@ -213,6 +229,7 @@ class Trainer(object):
                 predicted_label = predicted_label.data.cpu().numpy()
 
                 label = label.data.cpu().numpy()
+                print(predicted_label, label)
                 outputs.append(predicted_label)
                 labels.append(label)
 

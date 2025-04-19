@@ -3,10 +3,10 @@ import os
 import cv2
 import numpy as np
 import torchvision.transforms as transforms
-from src.GT_generator import make_mask, make_similarity_map
+from GT_generator import make_mask, make_similarity_map
 from torch.utils.data import Dataset
-from PIL import Image 
-from src.frequency_aware_cue import frequency_aware_cue
+from PIL import Image
+from frequency_aware_cue import frequency_aware_cue
 
 
 class BaseDataset(Dataset):
@@ -32,7 +32,7 @@ class BaseDataset(Dataset):
         pair_img = Image.open(pair_img_path).convert('RGB')
         np_pair_img = np.array(pair_img)
         # Make similarity map using a pair of fake and original image.
-        binary_mask = make_mask(np_image, np_pair_img,img_name+str(idx))
+        binary_mask = make_mask(np_image, np_pair_img, label, img_name+str(idx))
         similarity_map = make_similarity_map(binary_mask, 5)
         tensor = transforms.ToTensor()
         tensor_similarity_map = tensor(similarity_map)

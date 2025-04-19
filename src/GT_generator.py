@@ -1,11 +1,13 @@
 import math
-
+import random
 import cv2
 import numpy as np
+import matplotlib.pyplot as plt
 
 
-def make_mask(forged_image, source_image, name):
-
+def make_mask(forged_image, source_image, label, name):
+    if label == 0:
+        return np.zeros(source_image.shape[:2])
     # Compute absolute pixel-wise difference in the RGB channels
     difference = cv2.absdiff(forged_image, source_image)
 
@@ -30,27 +32,31 @@ def make_mask(forged_image, source_image, name):
 def make_similarity_map(mask_img, k):
 
     H, W = mask_img.shape  # Get the dimensions of the mask image
-    h = math.ceil(H / k)  # Height of each patch
-    w = math.ceil(W / k)  # Width of each patch
+    patch_h = math.ceil(H / k)  # Height of each patch
+    patch_w = math.ceil(W / k)  # Width of each patch
 
-    # List to store the forged probabilities of each patch
-    forged_probabilities = []
+    pad_h = k * patch_h - H
+    pad_w = k * patch_w - W
+    mask_padded = np.pad(mask_img, ((0, pad_h), (0, pad_w)), mode='constant', constant_values=0)
 
-    # Divide the mask image into k x k patches and compute the probability for each patch
-    for i in range(k):
-        for j in range(k):
-            # Extract patch mi
-            patch = mask_img[i * h:min((i + 1) * h, H), j * w:min((j + 1) * w, W)]
+    # Reshape into patches: shape will be (k, patch_h, k, patch_w)
+    patches = mask_padded.reshape(k, patch_h, k, patch_w)
 
-            # Calculate the forged probability (average pixel value in the patch)
-            forged_prob = np.mean(patch)
-            forged_probabilities.append(forged_prob)
+    # Compute forged probability for each patch by averaging pixel values (resulting shape: (k, k))
+    p_matrix = np.mean(patches, axis=(1, 3))
 
-    # Now compute second-order supervision, i.e., sij for each pair of patches
-    second_order_supervision = np.zeros((k * k, k * k))
-    for i in range(k * k):
-        for j in range(k * k):
-            # Euclidean distance-based supervision
-            second_order_supervision[i, j] = 1 - (forged_probabilities[i] - forged_probabilities[j]) ** 2
+    # Flatten the patch probabilities to a vector of length k*k
+    p_vector = p_matrix.flatten()
+
+    # 6. Compute the second-order supervision matrix.
+    # For each pair of patches, compute s_ij = 1 - (p_i - p_j)^2.
+    diff = p_vector[:, np.newaxis] - p_vector[np.newaxis, :]
+    S = 1 - diff ** 2
+    second_order_supervision = S
+
+    # rand = random.randint(0, 100000000)
+    # cv2.imwrite(f"{rand}_mask.png", mask_img*255)
+    # # Save the heatmap
+    # cv2.imwrite(f"{rand}_second_order_supervision.png",S*255)  # Save as PNG
 
     return second_order_supervision

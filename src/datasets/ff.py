@@ -7,7 +7,7 @@ import logging
 
 from .base_dataset import BaseDataset
 
-from src.utils import log_print
+from utils import log_print
 
 class FFpp(BaseDataset):
     def __init__(self, fake_root, original_root, train_type="train",transform=None,num_classes=2,alpha=0.33,quality='c23'):

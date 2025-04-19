@@ -22,7 +22,6 @@ import torch.nn.functional as F
 import torch.utils.model_zoo as model_zoo
 from torch.nn import init
 import torch
-from src.rgb_frequency_attention_module import RFAM
 
 
 __all__ = ['xception']
@@ -38,7 +37,7 @@ class SeparableConv2d(nn.Module):
 
         self.conv1 = nn.Conv2d(in_channels,in_channels,kernel_size,stride,padding,dilation,groups=in_channels,bias=bias)
         self.pointwise = nn.Conv2d(in_channels,out_channels,1,1,0,1,1,bias=bias)
-    
+
     def forward(self,x):
         x = self.conv1(x)
         x = self.pointwise(x)
@@ -54,7 +53,7 @@ class Block(nn.Module):
             self.skipbn = nn.BatchNorm2d(out_filters)
         else:
             self.skip=None
-        
+
         self.relu = nn.ReLU(inplace=True)
         rep=[]
 
@@ -69,7 +68,7 @@ class Block(nn.Module):
             rep.append(self.relu)
             rep.append(SeparableConv2d(filters,filters,3,stride=1,padding=1,bias=False))
             rep.append(nn.BatchNorm2d(filters))
-        
+
         if not grow_first:
             rep.append(self.relu)
             rep.append(SeparableConv2d(in_filters,out_filters,3,stride=1,padding=1,bias=False))
@@ -110,7 +109,6 @@ class Xception(nn.Module):
         """
         super(Xception, self).__init__()
 
-        
         self.num_classes = num_classes
 
         self.conv1 = nn.Conv2d(3, 32, 3,2, 0, bias=False)
@@ -146,8 +144,6 @@ class Xception(nn.Module):
         self.bn4 = nn.BatchNorm2d(2048)
 
         self.fc = nn.Linear(2048, num_classes)
-        self.sigmoid = nn.Sigmoid()
-
 
         #------- init weights --------
         for m in self.modules():
@@ -159,11 +155,7 @@ class Xception(nn.Module):
                 m.bias.data.zero_()
         #-----------------------------
 
-
-
-
-
-    def forward(self, x, x2):
+    def forward(self, x):
         # features begin
 
         # Stream 1 low begin
@@ -245,9 +237,8 @@ class Xception(nn.Module):
     def block_4(self, x):
         x = x.view(x.size(0), -1)
         # feature end
-        x = self.fc(x)
+        y = self.fc(x)
 
-        y = self.sigmoid(x)
         return y
 
 

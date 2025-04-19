@@ -1,3 +1,11 @@
 test/
 paper/
 dataset/
+*.Identifier
+*.png
+*.jpg
+*.jpeg
+*.pth
+*.pt
+*.pyc
+ckpt/
