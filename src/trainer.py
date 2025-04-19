@@ -94,8 +94,7 @@ class Trainer(object):
 
             predicted_similarity = self.mpsm.similarity_map(outputs_list)
 
-            sim_loss = self.similarity_loss_fn(similarity_map.to(torch.float32), predicted_similarity.to(torch.float32)).to(
-                torch.float32)
+            sim_loss = self.similarity_loss_fn(similarity_map.to(torch.float32).to(self.device), predicted_similarity.to(torch.float32).to(self.device))
             predicted_similarity = predicted_similarity.to(self.device)
             predicted_label = self.model.block_4(predicted_similarity)
             label = label.to(torch.long)
