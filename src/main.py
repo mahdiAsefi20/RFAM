@@ -207,7 +207,7 @@ if __name__ == '__main__':
     arg('--k', type=int, default=5)
 
     # frequency aware cue
-    arg("--alpha", type=float, default=0.33)
+    arg("--alpha", type=float, default=0.25)
 
     # optimizer
     arg('--optimizer', type=str, default="adam")
