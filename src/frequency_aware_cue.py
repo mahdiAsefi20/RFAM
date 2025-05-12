@@ -65,7 +65,6 @@ def mid_pass_filter(dct_image, alpha_high=0.33, alpha_low=0.33):
     """Apply mid-pass filter by zeroing a triangular region in the DCT image."""
     h, w, _ = dct_image.shape
     mask = np.ones((h, w, 3), dtype=np.float32)  # Start with a mask of ones
-    print(alpha_high, alpha_low)
     # Create a triangular mask for high
     for i in range(round(alpha_high * w)):
         for j in range(round(alpha_high * w) - i - 1):
@@ -79,6 +78,26 @@ def mid_pass_filter(dct_image, alpha_high=0.33, alpha_low=0.33):
 
     return dct_image * mask
 
+def high_pass_square_filter(dct_image, alpha= 0.5):
+    """
+    filtering out the low frequency information to amplify subtle artifacts
+    at high frequencies
+
+    :param dct_image: DCT image
+    :param alpha: controls the low frequency component to be filtered out
+
+    :return: DCT image of high frequency
+    """
+    """Apply high-pass filter by zeroing a square region in the DCT image."""
+    h, w, _ = dct_image.shape
+    mask = np.ones((h, w, 3), dtype=np.float32)  # Start with a mask of ones
+
+    # Create a triangular mask
+    for i in range(round(alpha * w)):
+        for j in range(round(alpha * h)):
+                mask[i, j, :] = 0  # Zero out the triangle
+
+    return dct_image * mask
 
 def dct2rgb(dct_image):
 
@@ -96,7 +115,8 @@ def frequency_aware_cue(image_tensor, alpha=0.33):
     :return: an image in tensor type in shape of H * W * 1
     """
     dct_output = rgb2dct(image_tensor)
-    filter_output = mid_pass_filter(dct_output, alpha, alpha)
+    # filter_output = mid_pass_filter(dct_output, alpha, alpha)
+    filter_output = high_pass_square_filter(dct_output, alpha)
     idct_output = dct2rgb(filter_output)
     to_tensor_transform = transforms.ToTensor()
     tensor_idct_output = to_tensor_transform(idct_output)
