@@ -231,10 +231,10 @@ class Trainer(object):
             self.exp_name, epoch, val_loss.avg, acc, auc, (time.time()-start_time)/60, tdr, feature_norm.avg)
         log_print(msg)
 
-        # eraly stop
+        # early stop
         if self.best_record['acc'] > acc and self.best_record['epoch']+5 >= epoch:
             log_print("early stop, current epoch:{}, best record:{}".format(epoch, self.best_record))
-
+            return True
         # Save checkpoint.
         if (self.best_record['acc'] < acc and self.best_record['auc'] < auc) or (epoch+1)%10==0:
             log_print('Saving...')
@@ -252,3 +252,4 @@ class Trainer(object):
             self.best_record = {'acc': acc,'auc':auc,'epoch':epoch}
             torch.save(state, '{}/epoch_{}_acc_{:.3f}_auc_{:.3f}.pth'.format(self.save_dir,epoch,acc*100,auc*100))
 
+        return False

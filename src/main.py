@@ -172,9 +172,11 @@ def main(args):
         trainer.train_epoch(epoch_idx)
         print("--------------------epoch {} end-------------------------------------".format(epoch_idx))
         print("-------------------- test epoch {} start-------------------------------------".format(epoch_idx))
-        trainer.test_epoch(epoch_idx)
+        early_stop = trainer.test_epoch(epoch_idx)
         print("-------------------- test epoch {} end-------------------------------------".format(epoch_idx))
-
+        if early_stop:
+            print("-------Early Stop-------")
+            break
     log_model(experiment, model=model, model_name="last_model")
 
 if __name__ == '__main__':
@@ -194,9 +196,9 @@ if __name__ == '__main__':
 
     # dataset
     arg('--dataset', type=str, default='ff')
-    arg('--ff-quality', type=str, default='c23', choices=['c23', 'c40', 'raw'])
-    arg('--fake_root', type=str, default=r'/mnt/d/Datasets/FF++/PatchForensics/DF')
-    arg('--real_root', type=str, default=r'/mnt/d/Datasets/FF++/PatchForensics/original')
+    arg('--ff-quality', type=str, default='c40', choices=['c23', 'c40', 'raw'])
+    arg('--fake_root', type=str, default=r'/storage/users/masefi/deepFakeDetection/PCL-I2G/dataset_c40/PatchForensics/FS')
+    arg('--real_root', type=str, default=r'/storage/users/masefi/deepFakeDetection/PCL-I2G/dataset_c40/PatchForensics/original')
     arg('--batch-size', type=int, default=8)
     arg('--num-workers', type=int, default=0)
     arg('--shuffle', type=bool, default=True)
@@ -207,7 +209,7 @@ if __name__ == '__main__':
     arg('--k', type=int, default=5)
 
     # frequency aware cue
-    arg("--alpha", type=float, default=0.25)
+    arg("--alpha", type=float, default=0.33)
 
     # optimizer
     arg('--optimizer', type=str, default="adam")
