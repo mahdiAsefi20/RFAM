@@ -232,7 +232,7 @@ class Trainer(object):
         log_print(msg)
 
         # early stop
-        if self.best_record['acc'] > acc and self.best_record['epoch']+5 >= epoch:
+        if self.best_record['acc'] > acc and self.best_record['epoch']+5 <= epoch:
             log_print("early stop, current epoch:{}, best record:{}".format(epoch, self.best_record))
             return True
         # Save checkpoint.
