@@ -124,7 +124,6 @@ class Trainer(object):
             train_metrics = {
                 "train_cross_loss": cross_loss.item(),
                 "train_sim_loss": sim_loss.item(),
-                "train_sim_loss": sim_loss.item(),
                 "train_loss": loss.item(),
                 "train_acc": acc,
                 "train_auc": auc,
@@ -244,12 +243,192 @@ class Trainer(object):
                 state_dict = self.model.state_dict()
             state = {
                 'model': state_dict,
+                'rfam_low': self.rfam_low.state_dict(),
+                'rfam_mid': self.rfam_mid.state_dict(),
+                'rfam_high': self.rfam_high.state_dict(),
                 'optimizer': self.optimizer.state_dict(),
                 'acc': acc,
                 'auc': auc,
-                'epoch':epoch,
+                'epoch': epoch,
             }
-            self.best_record = {'acc': acc,'auc':auc,'epoch':epoch}
-            torch.save(state, '{}/epoch_{}_acc_{:.3f}_auc_{:.3f}.pth'.format(self.save_dir,epoch,acc*100,auc*100))
+            try:
+                torch.save(state, '{}/epoch_{}_acc_{:.3f}_auc_{:.3f}.pth'.format(self.save_dir,epoch,acc*100,auc*100))
+                # Only update best record if save was successful
+                self.best_record = {'acc': acc,'auc':auc,'epoch':epoch}
+            except Exception as e:
+                log_print(f'Error saving checkpoint: {str(e)}')
 
         return False
+
+
+    # @staticmethod
+    # def load_and_inference(model_path, rgb_image, freq_image, device=None):
+    #     """
+    #     Load a saved model and perform inference on input images.
+        
+    #     Args:
+    #         model_path (str): Path to the saved model checkpoint
+    #         rgb_image (torch.Tensor): RGB input image tensor
+    #         freq_image (torch.Tensor): Frequency input image tensor
+    #         device (torch.device, optional): Device to run inference on. If None, uses CUDA if available
+            
+    #     Returns:
+    #         tuple: (predicted_label, predicted_similarity)
+    #             - predicted_label: Model's classification output
+    #             - predicted_similarity: Similarity map prediction
+    #     """
+    #     if device is None:
+    #         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+            
+    #     # Load checkpoint
+    #     checkpoint = torch.load(model_path, map_location=device)
+        
+    #     # Initialize model components (you'll need to import these)
+    #     model = YourModelClass()  # Replace with your actual model class
+    #     rfam_low = RFAMLow()      # Replace with your actual RFAM classes
+    #     rfam_mid = RFAMMid()
+    #     rfam_high = RFAMHigh()
+    #     mpsm = MPSM()            # Replace with your actual MPSM class
+        
+    #     # Load state dicts
+    #     model.load_state_dict(checkpoint['model'])
+    #     rfam_low.load_state_dict(checkpoint['rfam_low'])
+    #     rfam_mid.load_state_dict(checkpoint['rfam_mid'])
+    #     rfam_high.load_state_dict(checkpoint['rfam_high'])
+        
+    #     # Move models to device
+    #     model = model.to(device)
+    #     rfam_low = rfam_low.to(device)
+    #     rfam_mid = rfam_mid.to(device)
+    #     rfam_high = rfam_high.to(device)
+        
+    #     # Set to eval mode
+    #     model.eval()
+    #     rfam_low.eval()
+    #     rfam_mid.eval()
+    #     rfam_high.eval()
+        
+    #     # Prepare input data
+    #     rgb_image = rgb_image.to(device)
+    #     freq_image = freq_image.to(device)
+        
+    #     with torch.no_grad():
+    #         # Forward pass through the model
+    #         U1_low = model.block_1(rgb_image)
+    #         U2_low = model.block_1(freq_image)
+    #         A1_low, A2_low = rfam_low(U1_low, U2_low)
+    #         x1 = U1_low * A1_low
+    #         x2 = U2_low * A2_low
+
+    #         U1_mid = model.block_2(x1)
+    #         U2_mid = model.block_2(x2)
+    #         A1_mid, A2_mid = rfam_mid(U1_mid, U2_mid)
+    #         x1 = U1_mid * A1_mid
+    #         x2 = U2_mid * A2_mid
+
+    #         U1_high = model.block_3(x1)
+    #         U2_high = model.block_3(x2)
+    #         A1_high, A2_high = rfam_high(U1_high, U2_high)
+    #         x1 = U1_high * A1_high
+    #         x2 = U2_high * A2_high
+
+    #         outputs_list = [(U1_low, A1_low), (U2_low, A2_low), 
+    #                       (U1_mid, A1_mid), (U2_mid, A2_mid),
+    #                       (U1_high, A1_high), (U2_high, A2_high)]
+
+    #         predicted_similarity = mpsm.similarity_map(outputs_list)
+    #         predicted_similarity = predicted_similarity.to(device)
+    #         predicted_label = model.block_4(predicted_similarity)
+            
+    #         # Convert to numpy for easier handling
+    #         predicted_label = predicted_label.cpu().numpy()
+    #         predicted_similarity = predicted_similarity.cpu().numpy()
+            
+    #         return predicted_label, predicted_similarity
+
+    # @staticmethod
+    # def load_and_inference_batch(model_path, rgb_images, freq_images, device=None):
+    #     """
+    #     Load a saved model and perform inference on a batch of images.
+        
+    #     Args:
+    #         model_path (str): Path to the saved model checkpoint
+    #         rgb_images (torch.Tensor): Batch of RGB input images
+    #         freq_images (torch.Tensor): Batch of frequency input images
+    #         device (torch.device, optional): Device to run inference on. If None, uses CUDA if available
+            
+    #     Returns:
+    #         tuple: (predicted_labels, predicted_similarities)
+    #             - predicted_labels: Model's classification outputs for the batch
+    #             - predicted_similarities: Similarity map predictions for the batch
+    #     """
+    #     if device is None:
+    #         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+            
+    #     # Load checkpoint
+    #     checkpoint = torch.load(model_path, map_location=device)
+        
+    #     # Initialize model components
+    #     model = YourModelClass()  # Replace with your actual model class
+    #     rfam_low = RFAMLow()      # Replace with your actual RFAM classes
+    #     rfam_mid = RFAMMid()
+    #     rfam_high = RFAMHigh()
+    #     mpsm = MPSM()            # Replace with your actual MPSM class
+        
+    #     # Load state dicts
+    #     model.load_state_dict(checkpoint['model'])
+    #     rfam_low.load_state_dict(checkpoint['rfam_low'])
+    #     rfam_mid.load_state_dict(checkpoint['rfam_mid'])
+    #     rfam_high.load_state_dict(checkpoint['rfam_high'])
+        
+    #     # Move models to device
+    #     model = model.to(device)
+    #     rfam_low = rfam_low.to(device)
+    #     rfam_mid = rfam_mid.to(device)
+    #     rfam_high = rfam_high.to(device)
+    #     mpsm = mpsm.to(device)
+        
+    #     # Set to eval mode
+    #     model.eval()
+    #     rfam_low.eval()
+    #     rfam_mid.eval()
+    #     rfam_high.eval()
+    #     mpsm.eval()
+        
+    #     # Prepare input data
+    #     rgb_images = rgb_images.to(device)
+    #     freq_images = freq_images.to(device)
+        
+    #     with torch.no_grad():
+    #         # Forward pass through the model
+    #         U1_low = model.block_1(rgb_images)
+    #         U2_low = model.block_1(freq_images)
+    #         A1_low, A2_low = rfam_low(U1_low, U2_low)
+    #         x1 = U1_low * A1_low
+    #         x2 = U2_low * A2_low
+
+    #         U1_mid = model.block_2(x1)
+    #         U2_mid = model.block_2(x2)
+    #         A1_mid, A2_mid = rfam_mid(U1_mid, U2_mid)
+    #         x1 = U1_mid * A1_mid
+    #         x2 = U2_mid * A2_mid
+
+    #         U1_high = model.block_3(x1)
+    #         U2_high = model.block_3(x2)
+    #         A1_high, A2_high = rfam_high(U1_high, U2_high)
+    #         x1 = U1_high * A1_high
+    #         x2 = U2_high * A2_high
+
+    #         outputs_list = [(U1_low, A1_low), (U2_low, A2_low), 
+    #                       (U1_mid, A1_mid), (U2_mid, A2_mid),
+    #                       (U1_high, A1_high), (U2_high, A2_high)]
+
+    #         predicted_similarity = mpsm.similarity_map(outputs_list)
+    #         predicted_similarity = predicted_similarity.to(device)
+    #         predicted_label = model.block_4(predicted_similarity)
+            
+    #         # Convert to numpy for easier handling
+    #         predicted_label = predicted_label.cpu().numpy()
+    #         predicted_similarity = predicted_similarity.cpu().numpy()
+            
+    #         return predicted_label, predicted_similarity
