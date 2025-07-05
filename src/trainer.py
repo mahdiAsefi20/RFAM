@@ -66,31 +66,33 @@ class Trainer(object):
         for batch_idx,(rgb_date, freq_data ,label, similarity_map) in enumerate(self.train_loader):
             my_step = previous_steps + batch_idx
             rgb_date = rgb_date.to(self.device)
-            freq_data = freq_data.to(self.device)
+            # freq_data = freq_data.to(self.device)
             label = label.to(self.device)
             N = label.size(0)
             # forward
             self.optimizer.zero_grad()
             U1_low = self.model.block_1(rgb_date)
-            U2_low = self.model.block_1(freq_data)
-            A1_low, A2_low = self.rfam_low(U1_low, U2_low)
-            x1 = U1_low * A1_low
-            x2 = U2_low * A2_low
+            # U2_low = self.model.block_1(freq_data)
+            # A1_low, A2_low = self.rfam_low(U1_low, U2_low)
+            # x1 = U1_low * A1_low
+            # x2 = U2_low * A2_low
 
-            U1_mid = self.model.block_2(x1)
-            U2_mid = self.model.block_2(x2)
-            A1_mid, A2_mid = self.rfam_mid(U1_mid, U2_mid)
-            x1 = U1_mid * A1_mid
-            x2 = U2_mid * A2_mid
+            U1_mid = self.model.block_2(U1_low)
+            # U2_mid = self.model.block_2(x2)
+            # A1_mid, A2_mid = self.rfam_mid(U1_mid, U2_mid)
+            # x1 = U1_mid * A1_mid
+            # x2 = U2_mid * A2_mid
 
-            U1_high = self.model.block_3(x1)
-            U2_high = self.model.block_3(x2)
-            A1_high, A2_high = self.rfam_high(U1_high, U2_high)
-            x1 = U1_high * A1_high
-            x2 = U2_high * A2_high
+            U1_high = self.model.block_3(U1_mid)
+            # U2_high = self.model.block_3(x2)
+            # A1_high, A2_high = self.rfam_high(U1_high, U2_high)
+            # x1 = U1_high * A1_high
+            # x2 = U2_high * A2_high
 
-            outputs_list = [(U1_low, A1_low), (U2_low, A2_low), (U1_mid, A1_mid), (U2_mid, A2_mid), (U1_high, A1_high),
-                            (U2_high, A2_high)]
+            # outputs_list = [(U1_low, A1_low), (U2_low, A2_low), (U1_mid, A1_mid), (U2_mid, A2_mid), (U1_high, A1_high),
+            #                 (U2_high, A2_high)]
+
+            outputs_list = [U1_low, U1_mid, U1_high]
 
             predicted_similarity = self.mpsm.similarity_map(outputs_list)
 
@@ -172,31 +174,33 @@ class Trainer(object):
             for batch_idx,(rgb_date, freq_data ,label, similarity_map) in tqdm(enumerate(self.test_loader),total=len(self.test_loader)):
                 my_test_step = previous_steps_test + batch_idx
                 rgb_date = rgb_date.to(self.device)
-                freq_data = freq_data.to(self.device)
+                # freq_data = freq_data.to(self.device)
                 label = label.to(self.device)
                 N = label.size(0)
                 # forward
                 U1_low = self.model.block_1(rgb_date)
-                U2_low = self.model.block_1(freq_data)
-                A1_low, A2_low = self.rfam_low(U1_low, U2_low)
-                x1 = U1_low * A1_low
-                x2 = U2_low * A2_low
+                # U2_low = self.model.block_1(freq_data)
+                # A1_low, A2_low = self.rfam_low(U1_low, U2_low)
+                # x1 = U1_low * A1_low
+                # x2 = U2_low * A2_low
 
-                U1_mid = self.model.block_2(x1)
-                U2_mid = self.model.block_2(x2)
-                A1_mid, A2_mid = self.rfam_mid(U1_mid, U2_mid)
-                x1 = U1_mid * A1_mid
-                x2 = U2_mid * A2_mid
+                U1_mid = self.model.block_2(U1_low)
+                # U2_mid = self.model.block_2(x2)
+                # A1_mid, A2_mid = self.rfam_mid(U1_mid, U2_mid)
+                # x1 = U1_mid * A1_mid
+                # x2 = U2_mid * A2_mid
 
-                U1_high = self.model.block_3(x1)
-                U2_high = self.model.block_3(x2)
-                A1_high, A2_high = self.rfam_high(U1_high, U2_high)
-                x1 = U1_high * A1_high
-                x2 = U2_high * A2_high
+                U1_high = self.model.block_3(U1_mid)
+                # U2_high = self.model.block_3(x2)
+                # A1_high, A2_high = self.rfam_high(U1_high, U2_high)
+                # x1 = U1_high * A1_high
+                # x2 = U2_high * A2_high
 
-                outputs_list = [(U1_low, A1_low), (U2_low, A2_low), (U1_mid, A1_mid), (U2_mid, A2_mid),
-                                (U1_high, A1_high),
-                                (U2_high, A2_high)]
+                # outputs_list = [(U1_low, A1_low), (U2_low, A2_low), (U1_mid, A1_mid), (U2_mid, A2_mid),
+                #                 (U1_high, A1_high),
+                #                 (U2_high, A2_high)]
+
+                outputs_list = [U1_low, U1_mid, U1_high]
 
                 predicted_similarity = self.mpsm.similarity_map(outputs_list)
 
@@ -243,9 +247,9 @@ class Trainer(object):
                 state_dict = self.model.state_dict()
             state = {
                 'model': state_dict,
-                'rfam_low': self.rfam_low.state_dict(),
-                'rfam_mid': self.rfam_mid.state_dict(),
-                'rfam_high': self.rfam_high.state_dict(),
+                # 'rfam_low': self.rfam_low.state_dict(),
+                # 'rfam_mid': self.rfam_mid.state_dict(),
+                # 'rfam_high': self.rfam_high.state_dict(),
                 'optimizer': self.optimizer.state_dict(),
                 'acc': acc,
                 'auc': auc,
