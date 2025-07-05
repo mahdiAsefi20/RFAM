@@ -62,9 +62,7 @@ class MPSM():
 
         self.feature_maps = feature_maps
 
-        # u1, u2, u3= self.fuse_streams()
-
-        u1, u2, u3 = feature_maps
+        u1, u2, u3= self.fuse_streams()
 
         uf= self.resize_and_concat(u1, u2, u3)
 
