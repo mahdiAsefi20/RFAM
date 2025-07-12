@@ -116,7 +116,7 @@ def frequency_aware_cue(image_tensor, alpha=0.33):
     """
     dct_output = rgb2dct(image_tensor)
     # filter_output = mid_pass_filter(dct_output, alpha, alpha)
-    filter_output = high_pass_square_filter(dct_output, alpha)
+    filter_output = high_pass_filter(dct_output, alpha)
     idct_output = dct2rgb(filter_output)
     to_tensor_transform = transforms.ToTensor()
     tensor_idct_output = to_tensor_transform(idct_output)
