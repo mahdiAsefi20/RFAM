@@ -1,5 +1,5 @@
 from tkinter.dnd import Tester
-
+from wavelet_transform import rgb_wavelet_rgb
 import numpy as np
 import cv2
 import torchvision.transforms as transforms
@@ -114,14 +114,16 @@ def frequency_aware_cue(image_tensor, alpha=0.33):
 
     :return: an image in tensor type in shape of H * W * 1
     """
-    dct_output = rgb2dct(image_tensor)
-    # filter_output = mid_pass_filter(dct_output, alpha, alpha)
-    filter_output = high_pass_filter(dct_output, alpha)
-    idct_output = dct2rgb(filter_output)
-    to_tensor_transform = transforms.ToTensor()
-    tensor_idct_output = to_tensor_transform(idct_output)
+    # dct_output = rgb2dct(image_tensor)
+    # # filter_output = mid_pass_filter(dct_output, alpha, alpha)
+    # filter_output = high_pass_filter(dct_output, alpha)
+    # idct_output = dct2rgb(filter_output)
+    # to_tensor_transform = transforms.ToTensor()
+    # tensor_idct_output = to_tensor_transform(idct_output)
 
-    return tensor_idct_output
+    tensor_iwavelet_output = rgb_wavelet_rgb(image_tensor)
+
+    return tensor_iwavelet_output
 
 ## Test
 # to_tensor_transform = transforms.ToTensor()
