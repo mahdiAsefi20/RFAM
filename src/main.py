@@ -1,4 +1,3 @@
-from calendar import c
 from comet_ml import start
 from comet_ml.integration.pytorch import log_model
 from multiscale_patch_similarity_module import MPSM
@@ -16,7 +15,7 @@ from xception import xception
 from trainer import Trainer
 from transform import TwoTransform, get_augs
 from utils import log_print, setup_logger, L2Loss
-from inference import Inference
+
 
 torch.multiprocessing.set_sharing_strategy("file_system")
 
@@ -35,8 +34,7 @@ def main(args):
     experiment = start(
         api_key="wJ5nyFWFDl079TRhZEQ6kAE5b",
         project_name="RFAM",
-        workspace="mahdiasefi20",
-        online=False
+        workspace="mahdiasefi20"
     )
     experiment.log_parameters(hyper_params)
     save_dir = os.path.join("ckpt", args.dataset, args.exp_name, args.model_name)
@@ -57,86 +55,86 @@ def main(args):
     if torch.cuda.is_available():
         model = model.cuda()
 
-    # # transforms
-    # train_augs = get_augs(name=args.aug_name, norm=args.norm, size=args.size)
-    # # if args.consistency != "None":
-    # #     train_augs = TwoTransform(train_augs)
-    # # log_print("train aug:{}".format(train_augs))
+    # transforms
+    train_augs = get_augs(name=args.aug_name, norm=args.norm, size=args.size)
+    # if args.consistency != "None":
+    #     train_augs = TwoTransform(train_augs)
+    # log_print("train aug:{}".format(train_augs))
     train_augs = get_augs(name="None", norm=args.norm, size=args.size)
-    # test_augs = get_augs(name="None", norm=args.norm, size=args.size)
-    # log_print("test aug:{}".format(test_augs))
+    test_augs = get_augs(name="None", norm=args.norm, size=args.size)
+    log_print("test aug:{}".format(test_augs))
 
-    # # dataset
-    # if args.dataset == "ff":
-    #     train_dataset = FFpp(args.fake_root,
-    #                          args.real_root, "train", train_augs, 2, args.alpha,
-    #                          args.ff_quality)
-    #     test_dataset = FFpp(args.fake_root,
-    #                          args.real_root, "test", train_augs, 2, args.alpha,
-    #                          args.ff_quality)
-    # elif args.dataset == "celebdf":
-    #     train_dataset = CelebDF(args.root, "train", train_augs)
-    #     test_dataset = CelebDF(args.root, "test", test_augs)
-    # elif args.dataset == "dffd":
-    #     train_dataset = DFFD(args.root, "train", train_augs)
-    #     test_dataset = DFFD(args.root, "test", test_augs)
-    # elif args.dataset == "dfdcp":
-    #     train_dataset = DFDCP(args.root, "train", train_augs)
-    #     test_dataset = DFDCP(args.root, "test", test_augs)
-    # else:
-    #     raise NotImplementedError
+    # dataset
+    if args.dataset == "ff":
+        train_dataset = FFpp(args.fake_root,
+                             args.real_root, "train", train_augs, 2, args.alpha,
+                             args.ff_quality)
+        test_dataset = FFpp(args.fake_root,
+                             args.real_root, "test", train_augs, 2, args.alpha,
+                             args.ff_quality)
+    elif args.dataset == "celebdf":
+        train_dataset = CelebDF(args.root, "train", train_augs)
+        test_dataset = CelebDF(args.root, "test", test_augs)
+    elif args.dataset == "dffd":
+        train_dataset = DFFD(args.root, "train", train_augs)
+        test_dataset = DFFD(args.root, "test", test_augs)
+    elif args.dataset == "dfdcp":
+        train_dataset = DFDCP(args.root, "train", train_augs)
+        test_dataset = DFDCP(args.root, "test", test_augs)
+    else:
+        raise NotImplementedError
 
-    # log_print("len train dataset:{}".format(len(train_dataset)))
-    # log_print("len test dataset:{}".format(len(test_dataset)))
-    # # dataloader
-    # trainloader = DataLoader(train_dataset,
-    #                          batch_size=args.batch_size,
-    #                          shuffle=args.shuffle,
-    #                          num_workers=args.num_workers
-    #                          )
-    # testloader = DataLoader(test_dataset,
-    #                         batch_size=args.batch_size,
-    #                         shuffle=args.shuffle,
-    #                         num_workers=args.num_workers
-    #                         )
+    log_print("len train dataset:{}".format(len(train_dataset)))
+    log_print("len test dataset:{}".format(len(test_dataset)))
+    # dataloader
+    trainloader = DataLoader(train_dataset,
+                             batch_size=args.batch_size,
+                             shuffle=args.shuffle,
+                             num_workers=args.num_workers
+                             )
+    testloader = DataLoader(test_dataset,
+                            batch_size=args.batch_size,
+                            shuffle=args.shuffle,
+                            num_workers=args.num_workers
+                            )
 
-    # if args.num_classes == 2:
-    #     ce_weight = [args.real_weight, 1.0]
-    # else:
-    #     raise NotImplementedError
+    if args.num_classes == 2:
+        ce_weight = [args.real_weight, 1.0]
+    else:
+        raise NotImplementedError
 
-    # # CrossEntropy Loss
-    # weight = torch.Tensor(ce_weight)
-    # if torch.cuda.is_available():
-    #     weight = weight.cuda()
-    # ce_loss_fn = nn.CrossEntropyLoss(weight)
+    # CrossEntropy Loss
+    weight = torch.Tensor(ce_weight)
+    if torch.cuda.is_available():
+        weight = weight.cuda()
+    ce_loss_fn = nn.CrossEntropyLoss(weight)
 
-    # # Similarity Loss (Mean Square Error)
-    # similarity_loss_fn = nn.MSELoss()
-    # # similarity_loss_fn = L2Loss()
+    # Similarity Loss (Mean Square Error)
+    similarity_loss_fn = nn.MSELoss()
+    # similarity_loss_fn = L2Loss()
 
-    # log_print("consistency loss function: {}, rate:{}".format(similarity_loss_fn, args.similarity_loss_rate))
-    # if args.optimizer == "adam":
-    #     optimizer = optim.Adam(params=model.parameters(), lr=args.lr, weight_decay=1e-5)
-    # else:
-    #     raise NotImplementedError
-    # log_print("optimizer: {}".format(optimizer))
+    log_print("consistency loss function: {}, rate:{}".format(similarity_loss_fn, args.similarity_loss_rate))
+    if args.optimizer == "adam":
+        optimizer = optim.Adam(params=model.parameters(), lr=args.lr, weight_decay=1e-5)
+    else:
+        raise NotImplementedError
+    log_print("optimizer: {}".format(optimizer))
 
-    # if args.load_model_path is not None:
-    #     log_print('==> Resuming from checkpoint..')
-    #     checkpoint = torch.load(args.load_model_path)  # , map_location="cpu"
-    #     model.load_state_dict(checkpoint['model'])
-    #     optimizer.load_state_dict(checkpoint['optimizer'])
-    #     best_recond = {
-    #         "acc": checkpoint['acc'],
-    #         "auc": checkpoint['auc'],
-    #         "epoch": checkpoint['epoch'],
-    #     }
-    #     start_epoch = checkpoint['epoch'] + 1
-    #     log_print("start from best recode: {}".format(best_recond))
-    # else:
-    #     best_recond = {"acc": 0, "auc": 0, "epoch": -1, "tdr3": 0, "tdr4": 0}
-    #     start_epoch = 1
+    if args.load_model_path is not None:
+        log_print('==> Resuming from checkpoint..')
+        checkpoint = torch.load(args.load_model_path)  # , map_location="cpu"
+        model.load_state_dict(checkpoint['model'])
+        optimizer.load_state_dict(checkpoint['optimizer'])
+        best_recond = {
+            "acc": checkpoint['acc'],
+            "auc": checkpoint['auc'],
+            "epoch": checkpoint['epoch'],
+        }
+        start_epoch = checkpoint['epoch'] + 1
+        log_print("start from best recode: {}".format(best_recond))
+    else:
+        best_recond = {"acc": 0, "auc": 0, "epoch": -1, "tdr3": 0, "tdr4": 0}
+        start_epoch = 1
 
     # Modules
     mspm = MPSM(k=args.k)
@@ -146,90 +144,40 @@ def main(args):
     rfam_high = RFAM(2 * 2048)
 
 
-    # # trainer
-    # trainer = Trainer(
-    #     train_loader=trainloader,
-    #     test_loader=testloader,
-    #     model=model,
-    #     mpsm=mspm,
-    #     rfam_low=rfam_low,
-    #     rfam_mid=rfam_mid,
-    #     rfam_high=rfam_high,
-    #     optimizer=optimizer,
-    #     ce_loss_fn=ce_loss_fn,
-    #     similarity_loss_fn=similarity_loss_fn,
-    #     similarity_loss_rate=args.similarity_loss_rate,
-    #     log_interval=args.log_interval,
-    #     best_recond=best_recond,
-    #     save_dir=save_dir,
-    #     exp=experiment,
-    #     exp_name=args.exp_name)
-    # lr = args.lr
-    # if args.mode == "train":
-    #     for epoch_idx in range(start_epoch, args.epochs + 1):
-    #         print("-------------------- epoch {} start-------------------------------------".format(epoch_idx))
-    #         if epoch_idx % 10 == 0:
-    #             trainer.optimizer = optim.Adam(params=model.parameters(), lr=lr / 2, weight_decay=1e-5)
-    #             lr = lr / 2
-    #             log_print("learning rate updated: {}".format(lr))
-    #         trainer.train_epoch(epoch_idx)
-    #         print("--------------------epoch {} end-------------------------------------".format(epoch_idx))
-    #         print("-------------------- test epoch {} start-------------------------------------".format(epoch_idx))
-    #         early_stop = trainer.test_epoch(epoch_idx)
-    #         print("-------------------- test epoch {} end-------------------------------------".format(epoch_idx))
-    #         if early_stop:
-    #             print("-------Early Stop-------")
-    #             break
-    #     log_model(experiment, model=model, model_name="last_model")
-    if args.mode == "inference":
-        print("Inference mode...")
-        Errors = {"DF":["DF", "FS", "NT", "F2F"], "FS":[], "NT":[], "F2F":[]}
-        list_of_subsets = ["DF", "FS", "NT", "F2F"]
-        models_dir = r"./ckpt/RFAM_NEW_Models/SQR75"
-        for model_name in os.listdir(models_dir):
-            print(model_name)
-            model_subset_name = model_name.split("_")[0]
-            other_subset_names = list(set(list_of_subsets) - set(model_subset_name))
-            # for subset_name in list_of_subsets:
-            #     if subset_name not in Errors[model_subset_name]:
-            #         continue
-            # try:
-            # fake_root = fr"./FF++_low_quality_test_only/{subset_name}"
-            # real_root = r"./FF++_low_quality_test_only/original"
-            if len(Errors[model_subset_name]) == 0:
-                continue
-            fake_root = r"/mnt/c/Users/admin/Downloads/Compressed/Celeb-DF/Celeb-DF/Test_Faces/CelebDF_synthesis"
-            real_root = r"/mnt/c/Users/admin/Downloads/Compressed/Celeb-DF/Celeb-DF/Test_Faces/CelebDF_real"
-            print(fake_root, real_root)
-            infe_dataset = FFpp(fake_root,
-                        real_root, "inference", train_augs, 2, args.alpha,
-                        args.ff_quality)
-
-
-            infeloader = DataLoader(infe_dataset,
-                        batch_size=8,
-                        shuffle=args.shuffle,
-                        num_workers=args.num_workers
-                        )
-
-            inference = Inference(subset_name=("Celeb_DF"),
-                        output_data_path=f"Test_CelebDF/WAVELET-MODEL-RESULTS",
-                        data_loader=infeloader,
-                        model=model,
-                        mpsm=mspm,
-                        rfam_low=rfam_low,
-                        rfam_mid=rfam_mid,
-                        rfam_high=rfam_high,)
-            inference.load_and_inference(model_path=os.path.join(models_dir, model_name))
-                # except Exception as e:
-                #     print(e)
-                #     Errors[model_name].append(subset_name)
-                #     continue
-        print("-----Errors-----")
-        print(Errors)
-                
-
-
+    # trainer
+    trainer = Trainer(
+        train_loader=trainloader,
+        test_loader=testloader,
+        model=model,
+        mpsm=mspm,
+        rfam_low=rfam_low,
+        rfam_mid=rfam_mid,
+        rfam_high=rfam_high,
+        optimizer=optimizer,
+        ce_loss_fn=ce_loss_fn,
+        similarity_loss_fn=similarity_loss_fn,
+        similarity_loss_rate=args.similarity_loss_rate,
+        log_interval=args.log_interval,
+        best_recond=best_recond,
+        save_dir=save_dir,
+        exp=experiment,
+        exp_name=args.exp_name)
+    lr = args.lr
+    for epoch_idx in range(start_epoch, args.epochs + 1):
+        print("-------------------- epoch {} start-------------------------------------".format(epoch_idx))
+        if epoch_idx % 10 == 0:
+            trainer.optimizer = optim.Adam(params=model.parameters(), lr=lr / 2, weight_decay=1e-5)
+            lr = lr / 2
+            log_print("learning rate updated: {}".format(lr))
+        trainer.train_epoch(epoch_idx)
+        print("--------------------epoch {} end-------------------------------------".format(epoch_idx))
+        print("-------------------- test epoch {} start-------------------------------------".format(epoch_idx))
+        early_stop = trainer.test_epoch(epoch_idx)
+        print("-------------------- test epoch {} end-------------------------------------".format(epoch_idx))
+        if early_stop:
+            print("-------Early Stop-------")
+            break
+    log_model(experiment, model=model, model_name="last_model")
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -248,9 +196,9 @@ if __name__ == '__main__':
 
     # dataset
     arg('--dataset', type=str, default='ff')
-    arg('--ff-quality', type=str, default='c23', choices=['c23', 'c40', 'raw'])
-    arg('--fake_root', type=str, default=r'/mnt/d/Datasets/FF++/PatchForensics/DF')
-    arg('--real_root', type=str, default=r'/mnt/d/Datasets/FF++/PatchForensics/original')
+    arg('--ff-quality', type=str, default='c40', choices=['c23', 'c40', 'raw'])
+    arg('--fake_root', type=str, default=r'/storage/users/masefi/deepFakeDetection/PCL-I2G/dataset_c40/PatchForensics/FS')
+    arg('--real_root', type=str, default=r'/storage/users/masefi/deepFakeDetection/PCL-I2G/dataset_c40/PatchForensics/original')
     arg('--batch-size', type=int, default=8)
     arg('--num-workers', type=int, default=0)
     arg('--shuffle', type=bool, default=True)
@@ -261,7 +209,7 @@ if __name__ == '__main__':
     arg('--k', type=int, default=5)
 
     # frequency aware cue
-    arg("--alpha", type=float, default=0.75)
+    arg("--alpha", type=float, default=0.33)
 
     # optimizer
     arg('--optimizer', type=str, default="adam")
@@ -282,8 +230,6 @@ if __name__ == '__main__':
     arg("--amp", default=False, action='store_true')
 
     arg("--seed", type=int, default=0)
-
-    arg("--mode", type=str, default="inference")
 
     args = parser.parse_args()
 
