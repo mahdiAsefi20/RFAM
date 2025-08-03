@@ -1,7 +1,7 @@
 import torch
 import torch.nn.functional as F
 import cv2
-# import matplotlib.pyplot as plt
+import matplotlib.pyplot as plt
 import numpy as np
 
 #feature_maps = [(U1_low, A1_low), (U2_low, A2_low), (U1_mid, A1_mid), (U2_mid, A2_mid), (U1_high, A1_high), (U2_high, A2_high)]
@@ -64,6 +64,8 @@ class MPSM():
 
         u1, u2, u3= self.fuse_streams()
 
+        # u1, u2, u3 = feature_maps
+
         uf= self.resize_and_concat(u1, u2, u3)
 
         patch  = self.make_patch(uf)
@@ -79,7 +81,7 @@ class MPSM():
         #     plt.imshow(heatmap, cmap='viridis')
         #     plt.colorbar()
         #     plt.axis('off')
-        #     plt.savefig(f"heatmap_{idx}.png", bbox_inches='tight', dpi=300)
+        #     plt.savefig(f"Test_Sim/Outputs/{img_path}", bbox_inches='tight', dpi=300)
         #     plt.close()  # Save as PNG
 
         return similarity
