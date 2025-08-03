@@ -34,10 +34,10 @@ class FFpp(BaseDataset):
         #         fake_imgs += [[t,1] for t in glob.glob(os.path.join(root,"manipulated_sequences/{}/{}/videos".format(fake_type,quality),"{}_{}".format(b,a),"*.png"))]
         #     real_imgs += [[t,0] for t in glob.glob(os.path.join(root,"original_sequences/youtube/{}/videos".format(quality),"{}".format(a),"*.png"))]
         #     real_imgs += [[t,0] for t in glob.glob(os.path.join(root,"original_sequences/youtube/{}/videos".format(quality),"{}".format(b),"*.png"))]
-        print(fake_root + "/" + train_type +"/*.png")
-        print(original_root + "/" + train_type +"/*.png")
-        fake_imgs += [[image_path,1] for image_path in glob.glob(fake_root + "/" + train_type +"/*.png")]
-        real_imgs += [[image_path,0] for image_path in glob.glob(original_root + "/" + train_type +"/*.png") if [os.path.join(fake_root, train_type,image_path.split("/")[-1]), 1] in fake_imgs]
+        print(fake_root + "/" + train_type +"/*.jpg")
+        print(original_root + "/" + train_type +"/*.jpg")
+        fake_imgs += [[image_path,1] for image_path in glob.glob(fake_root + "/" + train_type +"/*.jpg")]
+        real_imgs += [[image_path,0] for image_path in glob.glob(original_root + "/" + train_type +"/*.jpg") if [os.path.join(fake_root, train_type,image_path.split("/")[-1]), 1] in fake_imgs]
         log_print("[{}]\t fake imgs count :{}, real imgs count :{}".format(train_type, len(fake_imgs),len(real_imgs)))
 
         self.imgs = fake_imgs + real_imgs

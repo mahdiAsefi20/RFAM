@@ -40,7 +40,7 @@ class BaseDataset(Dataset):
         rgb_image = self.transform(image)
         freq_image = frequency_aware_cue(rgb_image, self.alpha)
 
-        return rgb_image, freq_image, float(label), tensor_similarity_map
+        return rgb_image, freq_image, float(label), tensor_similarity_map, img_path
 
     def __len__(self):
         return len(self.imgs)

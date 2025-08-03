@@ -5,6 +5,7 @@ import cv2
 import torchvision.transforms as transforms
 from scipy.fftpack import dct, idct
 from torchvision.transforms.v2.functional import to_tensor
+from wavelet_transform import rgb_wavelet_rgb
 
 
 def rgb2dct(tensor_image: transforms):
@@ -97,6 +98,9 @@ def high_pass_square_filter(dct_image, alpha= 0.5):
         for j in range(round(alpha * h)):
                 mask[i, j, :] = 0  # Zero out the triangle
 
+    # cv2.imwrite("highest_pass_SQR_filter.png", mask * 255)
+    # input("Wait....")
+
     return dct_image * mask
 
 def dct2rgb(dct_image):
@@ -114,17 +118,24 @@ def frequency_aware_cue(image_tensor, alpha=0.33):
 
     :return: an image in tensor type in shape of H * W * 1
     """
-    dct_output = rgb2dct(image_tensor)
-    # filter_output = mid_pass_filter(dct_output, alpha, alpha)
-    filter_output = high_pass_filter(dct_output, alpha)
-    idct_output = dct2rgb(filter_output)
-    to_tensor_transform = transforms.ToTensor()
-    tensor_idct_output = to_tensor_transform(idct_output)
 
-    return tensor_idct_output
+    # dct_output = rgb2dct(image_tensor)
+    # # filter_output = mid_pass_filter(dct_output, alpha, alpha)
+    # filter_output = high_pass_square_filter(dct_output, alpha)
+    # idct_output = dct2rgb(filter_output)
+    # to_tensor_transform = transforms.ToTensor()
+    # tensor_idct_output = to_tensor_transform(idct_output)
 
-## Test
+
+    # Conver rgb to wavelet, remove some frequnce, back from wavelet to rgb
+    tensor_iwavelet_output = rgb_wavelet_rgb(image_tensor)
+
+    return tensor_iwavelet_output
+
+# Test
 # to_tensor_transform = transforms.ToTensor()
-# a = to_tensor_transform(cv2.imread("/home/mahdi/Documents/Projects/RFAM/test/aa.png"))
+# a = to_tensor_transform(cv2.imread("./Test_FF++/Inputs/All/F2F (4).png"))
 # b = frequency_aware_cue(a)
-# print(b.shape)
+
+# cv2.imwrite("frequency_fig.png", b)
+
