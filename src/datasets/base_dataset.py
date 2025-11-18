@@ -5,6 +5,7 @@ import numpy as np
 import torchvision.transforms as transforms
 from GT_generator import make_mask, make_similarity_map
 from torch.utils.data import Dataset
+import torch
 from PIL import Image
 from frequency_aware_cue import frequency_aware_cue
 
@@ -37,10 +38,13 @@ class BaseDataset(Dataset):
         tensor = transforms.ToTensor()
         tensor_similarity_map = tensor(similarity_map)
         tensor_similarity_map = tensor_similarity_map.view(similarity_map.shape[0], similarity_map.shape[1])
-        rgb_image = self.transform(image)
-        freq_image = frequency_aware_cue(rgb_image, self.alpha)
+        torch_image = torch.from_numpy(np_image).permute(2,0,1)
+        freq_image = frequency_aware_cue(torch_image, self.alpha)
 
-        return rgb_image, freq_image, float(label), tensor_similarity_map
+        rgb_image_tensor = self.transform(image)
+        freq_image_tnsor = self.transform(freq_image)
+
+        return rgb_image_tensor, freq_image_tnsor, float(label), tensor_similarity_map
 
     def __len__(self):
         return len(self.imgs)

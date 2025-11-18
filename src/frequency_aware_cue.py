@@ -5,28 +5,20 @@ import cv2
 import torchvision.transforms as transforms
 from scipy.fftpack import dct, idct
 from torchvision.transforms.v2.functional import to_tensor
+from PIL import Image
 
+def rgb2dct(tensor_image):
 
-def rgb2dct(tensor_image: transforms):
-    """
-    Get the input image and do Discrete Cosine Transform
-    :param tensor_image: input image
-    :return: DCT of input image
-    """
-    grayscale_transform = transforms.Compose([
-        transforms.ToPILImage(),  # Convert the tensor to PIL Image
-    ])
+    print(tensor_image.min(), tensor_image.max())
+    # Convert CxHxW tensor -> HxWxC uint8
+    img = tensor_image.permute(1, 2, 0).cpu().numpy()
+    img = img.astype(np.float32)
 
-    pil_gray_image = grayscale_transform(tensor_image)  # Use the transform as a function on tensor_image
-
-    # Convert the PIL image to a NumPy array
-    numpy_image = np.array(pil_gray_image)
-
-    # IMPORTANT: Convert the image to float32 (required for cv2.dct)
-    numpy_image_float = np.float32(numpy_image)  # Convert to float32 for DCT
-
-    # Apply DCT using OpenCV
-    dct_channels = [dct(dct(numpy_image_float[:, :, i], axis=0, norm='ortho'), axis=1, norm='ortho') for i in range(3)]
+    # Apply 2D DCT per channel
+    dct_channels = [
+        dct(dct(img[:, :, c], axis=0, norm='ortho'), axis=1, norm='ortho')
+        for c in range(3)
+    ]
     return np.stack(dct_channels, axis=2)
 
 
@@ -100,9 +92,17 @@ def high_pass_square_filter(dct_image, alpha= 0.5):
     return dct_image * mask
 
 def dct2rgb(dct_image):
+    # Apply 2D IDCT per channel
+    idct_channels = [
+        idct(idct(dct_image[:, :, c], axis=0, norm='ortho'), axis=1, norm='ortho')
+        for c in range(3)
+    ]
+    img = np.stack(idct_channels, axis=2)
 
-    idct_channels = [idct(idct(dct_image[:, :, i], axis=0, norm='ortho'), axis=1, norm='ortho') for i in range(3)]
-    return np.stack(idct_channels, axis=2)
+    # Clip to valid range
+    img = np.clip(img, 0, 255).astype(np.uint8)
+    cv2.imwrite("idct.png", img)
+    return img
 
 
 
@@ -114,16 +114,14 @@ def frequency_aware_cue(image_tensor, alpha=0.33):
 
     :return: an image in tensor type in shape of H * W * 1
     """
-    # dct_output = rgb2dct(image_tensor)
-    # # filter_output = mid_pass_filter(dct_output, alpha, alpha)
-    # filter_output = high_pass_filter(dct_output, alpha)
-    # idct_output = dct2rgb(filter_output)
-    # to_tensor_transform = transforms.ToTensor()
-    # tensor_idct_output = to_tensor_transform(idct_output)
+    dct_output = rgb2dct(image_tensor)
+    # filter_output = mid_pass_filter(dct_output, alpha, alpha)
+    filter_output = high_pass_filter(dct_output, alpha)
+    idct_output = dct2rgb(filter_output)
+    pil_idct = Image.fromarray(idct_output)
+    # tensor_iwavelet_output = rgb_wavelet_rgb(image_tensor)
 
-    tensor_iwavelet_output = rgb_wavelet_rgb(image_tensor)
-
-    return tensor_iwavelet_output
+    return pil_idct
 
 ## Test
 # to_tensor_transform = transforms.ToTensor()
