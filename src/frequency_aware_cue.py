@@ -118,7 +118,6 @@ def dct2rgb(dct_image):
 
     # Clip to valid range
     img = np.clip(img, 0, 255).astype(np.uint8)
-    cv2.imwrite("idct.png", img)
     return img
 
 
