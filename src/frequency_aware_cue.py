@@ -9,7 +9,6 @@ from PIL import Image
 
 def rgb2dct(tensor_image):
 
-    print(tensor_image.min(), tensor_image.max())
     # Convert CxHxW tensor -> HxWxC uint8
     img = tensor_image.permute(1, 2, 0).cpu().numpy()
     img = img.astype(np.float32)
@@ -21,6 +20,24 @@ def rgb2dct(tensor_image):
     ]
     return np.stack(dct_channels, axis=2)
 
+
+def rgb2dct_grayscale(tensor_image):
+    # Convert CxHxW tensor -> HxWxC uint8/float32
+    img = tensor_image.permute(1, 2, 0).cpu().numpy().astype(np.float32)
+
+    # OpenCV expects BGR, so convert RGB → BGR
+    img_bgr = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
+
+    # Convert BGR → Grayscale using OpenCV
+    gray = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2GRAY)  # shape: HxW
+
+    # 2D DCT on grayscale
+    dct_gray = dct(dct(gray, axis=0, norm='ortho'), axis=1, norm='ortho')
+
+    # Repeat grayscale DCT to produce 3 channels (HxWx3)
+    dct_3ch = np.stack([dct_gray]*3, axis=2)
+
+    return dct_3ch
 
 def high_pass_filter(dct_image, alpha= 0.33):
     """
@@ -114,7 +131,7 @@ def frequency_aware_cue(image_tensor, alpha=0.33):
 
     :return: an image in tensor type in shape of H * W * 1
     """
-    dct_output = rgb2dct(image_tensor)
+    dct_output = rgb2dct_grayscale(image_tensor)
     # filter_output = mid_pass_filter(dct_output, alpha, alpha)
     filter_output = high_pass_filter(dct_output, alpha)
     idct_output = dct2rgb(filter_output)
